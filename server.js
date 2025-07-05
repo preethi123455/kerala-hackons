@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
+const bcrypt = require('bcrypt');
 
 // ======= App Setup =======
 const app = express();
@@ -12,8 +13,10 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// ======= MongoDB Connection =======
-mongoose.connect('mongodb+srv://preethiusha007:I9usxddkfW2QtCmy@cluster0.vgmjle4.mongodb.net/nourishaid?retryWrites=true&w=majority', {
+// ======= MongoDB Atlas Connection (No .env) =======
+const MONGO_URI = 'mongodb+srv://preethiusha007:I9usxddkfW2QtCmy@cluster0.vgmjle4.mongodb.net/nourishaid?retryWrites=true&w=majority';
+
+mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
@@ -23,7 +26,7 @@ mongoose.connect('mongodb+srv://preethiusha007:I9usxddkfW2QtCmy@cluster0.vgmjle4
 // ======= Mongoose Schema =======
 const userSchema = new mongoose.Schema({
   username: String,
-  email: String,
+  email: { type: String, unique: true },
   password: String,
   phone: String,
   orgType: String,
@@ -34,7 +37,7 @@ const User = mongoose.model('User', userSchema);
 
 // ======= Routes =======
 
-// Signup Route
+// POST /signup
 app.post('/signup', async (req, res) => {
   try {
     const { username, email, password, phone, orgType, userType } = req.body;
@@ -44,7 +47,17 @@ app.post('/signup', async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    const newUser = new User({ username, email, password, phone, orgType, userType });
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = new User({
+      username,
+      email,
+      password: hashedPassword,
+      phone,
+      orgType,
+      userType
+    });
+
     await newUser.save();
 
     res.status(200).json({ message: 'Signup successful' });
@@ -54,14 +67,19 @@ app.post('/signup', async (req, res) => {
   }
 });
 
-// Login Route
+// POST /login
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email, password });
+    const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     res.status(200).json({
