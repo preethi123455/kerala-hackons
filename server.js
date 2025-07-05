@@ -4,80 +4,85 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
 
+// ======= App Setup =======
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// === Middleware ===
+// ======= Middleware =======
 app.use(cors());
 app.use(express.json());
 
-// === MongoDB Atlas Connection ===
-mongoose.connect('mongodb+srv://preethiusha007:I9usxddkfW2QtCmy@cluster0.cmhgybo.mongodb.net/nourishaid?retryWrites=true&w=majority', {
+// ======= MongoDB Connection =======
+mongoose.connect('mongodb+srv://preethiusha007:I9usxddkfW2QtCmy@cluster0.vgmjle4.mongodb.net/nourishaid?retryWrites=true&w=majority', {
   useNewUrlParser: true,
   useUnifiedTopology: true
 })
 .then(() => console.log('✅ Connected to MongoDB Atlas'))
 .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// === Mongoose User Schema ===
+// ======= Mongoose Schema =======
 const userSchema = new mongoose.Schema({
   username: String,
   email: String,
   password: String,
   phone: String,
   orgType: String,
-  userType: String // donor or receiver
+  userType: String // 'donor' or 'receiver'
 });
 
 const User = mongoose.model('User', userSchema);
 
-// === Routes ===
+// ======= Routes =======
 
-// POST /signup
+// Signup Route
 app.post('/signup', async (req, res) => {
   try {
     const { username, email, password, phone, orgType, userType } = req.body;
 
-    const exists = await User.findOne({ email });
-    if (exists) return res.status(400).json({ message: 'User already exists' });
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
 
-    const user = new User({ username, email, password, phone, orgType, userType });
-    await user.save();
+    const newUser = new User({ username, email, password, phone, orgType, userType });
+    await newUser.save();
 
     res.status(200).json({ message: 'Signup successful' });
-  } catch (err) {
-    console.error('Signup error:', err);
+  } catch (error) {
+    console.error('❌ Signup error:', error);
     res.status(500).json({ message: 'Server error during signup' });
   }
 });
 
-// POST /login
+// Login Route
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email, password });
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
     res.status(200).json({
       message: 'Login successful',
       userType: user.userType,
       username: user.username
     });
-  } catch (err) {
-    console.error('Login error:', err);
+  } catch (error) {
+    console.error('❌ Login error:', error);
     res.status(500).json({ message: 'Server error during login' });
   }
 });
 
-// === Serve Frontend (for Render/Production) ===
+// ======= Serve Frontend (for production deployment) =======
 app.use(express.static(path.join(__dirname, 'client/build')));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'client/build/index.html'));
 });
 
-// === Start Server ===
+// ======= Start Server =======
 app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
